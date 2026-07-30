@@ -33,7 +33,96 @@ Claude는 `workflow/config.json`의 `commands.unitTest`를 실행할 수 있다.
 
 ---
 
-## 2. Claude 수정 금지 영역
+## 2. 구현 아키텍처 규칙
+
+스택: **Electron + TypeScript + React** (로컬 전용 데스크톱 앱)
+
+메인 프로세스가 백엔드 역할을 한다. 별도 서버는 없다.
+
+스택이 바뀌면 이 절과 `workflow/presets.json`의 해당 프리셋을 함께 갱신한다.
+아래 규칙의 기계 판독용 사본은 `presets.json`의
+`electron-vitest-playwright.securityInvariants`에 있다.
+
+### 2.1 디렉터리 구조
+
+    src/core       순수 TypeScript. electron 을 import 하지 않는다.
+                   Node 에서 그대로 실행된다.
+    src/main       창 생성, IPC 배선, OS 연동만
+    src/preload    contextBridge 노출만
+    src/renderer   React
+    src/shared     IPC 채널 정의와 공용 타입
+
+**핵심 규칙: 메인 프로세스를 얇게 유지하고 비즈니스 로직은 전부 `src/core`에
+둔다.**
+
+이 규칙 하나가 세 가지를 해결한다.
+
+- `tests/unit`이 Electron 부팅 없이 밀리초 단위로 돈다. 테스트 속도가 곧
+  테스트를 실제로 돌리는지 여부를 결정한다.
+- 3계층 테스트 분리의 전제가 된다.
+- 프로세스 경계를 혼동해서 생기는 버그를 구조적으로 막는다.
+
+판단 기준은 단순하다. `src/core`의 파일에 `import ... from 'electron'`이
+들어가면 그 코드는 잘못된 위치에 있다.
+
+### 2.2 보안 불변조건 (예외 없음)
+
+Electron의 보안 API는 여러 번 바뀌었고 학습 데이터에는 폐기된 패턴이 대량으로
+남아 있다. 그럴듯해 보여도 아래를 위반하면 잘못된 코드다.
+
+`BrowserWindow`의 `webPreferences`는 항상 다음을 만족한다.
+
+    contextIsolation: true
+    nodeIntegration: false
+    sandbox: true
+    webSecurity: true      개발 중에도 끄지 않는다
+
+다음 패턴을 생성했다면 즉시 되돌린다.
+
+- `nodeIntegration: true`
+- `contextIsolation: false`
+- `enableRemoteModule`
+- `@electron/remote` 또는 `require('electron').remote`
+- 렌더러에서 `require()` 또는 Node API 직접 접근
+- `contextBridge` 없이 `ipcRenderer`를 `window`에 노출
+- `shell.openExternal`에 검증하지 않은 URL 전달
+- `loadURL`에 원격 URL 지정 (로컬 전용 앱이다)
+
+### 2.3 IPC 규칙
+
+- 모든 IPC 채널 이름과 페이로드 타입은 `src/shared/ipc.ts` **한 파일에만**
+  정의한다. 채널 이름 문자열을 여러 곳에 흩뿌리지 않는다.
+- `preload`는 `contextBridge.exposeInMainWorld`로 **좁은 API만** 노출한다.
+  `ipcRenderer` 자체를 노출하지 않는다.
+- 메인 쪽 핸들러는 렌더러 입력을 신뢰하지 않고 검증한다.
+
+IPC를 하나 추가할 때는 네 곳을 함께 갱신한다. 하나라도 빠지면 타입이 어긋난다.
+
+    src/shared/ipc.ts  →  src/preload  →  src/main 핸들러  →  src/renderer
+
+### 2.4 테스트 배치
+
+| 경로 | 소유 | 도구 | 대상 |
+|---|---|---|---|
+| `tests/unit` | Claude | Vitest | `src/core` 순수 로직. Electron 미사용 |
+| `tests/module` | Codex | Vitest + React Testing Library | 모듈별 동작 |
+| `tests/system` | Codex | Playwright | 빌드된 앱 실제 구동 |
+
+Claude는 `tests/unit`만 작성한다.
+
+`src/main`이나 `src/preload`의 로직을 단위 테스트하고 싶어지면, 그 로직이
+`src/core`에 있어야 한다는 신호다. 테스트를 억지로 만들지 말고 코드를 옮긴다.
+
+### 2.5 빌드
+
+`electron-vite`를 사용한다. 렌더러 HMR과 메인·preload 핫 리로드를 제공한다.
+
+빌드 설정을 손으로 직접 구성하지 않는다. Electron Forge의 Vite 플러그인은
+실험 단계이므로 쓰지 않는다.
+
+---
+
+## 3. Claude 수정 금지 영역
 
 - `docs/requirements/`
 - `docs/design/`
@@ -57,7 +146,7 @@ Claude 쪽에는 없다.
 
 ---
 
-## 3. 요구사항 사용
+## 4. 요구사항 사용
 
 Claude는 확정 요구사항을 구현 기준으로 읽는다.
 
@@ -80,7 +169,7 @@ Claude는 확정 요구사항을 구현 기준으로 읽는다.
 
 ---
 
-## 4. Codex 호출 제한
+## 5. Codex 호출 제한
 
 Claude는 `workflow/scripts/` 아래의 `invoke-*.ps1`을 평소 작업 중 임의로
 실행하지 않는다.
@@ -101,7 +190,7 @@ Claude는 `workflow/scripts/` 아래의 `invoke-*.ps1`을 평소 작업 중 임�
 
 ---
 
-## 5. 테스트 실패 처리
+## 6. 테스트 실패 처리
 
 ### 모듈 또는 시스템 테스트 보고서가 `PRODUCT_CODE_BUG`인 경우
 
@@ -129,7 +218,7 @@ Claude는 `workflow/scripts/` 아래의 `invoke-*.ps1`을 평소 작업 중 임�
 
 ---
 
-## 6. 커밋
+## 7. 커밋
 
 커밋은 사용자가 직접 한다. Claude는 커밋하지 않는다.
 
