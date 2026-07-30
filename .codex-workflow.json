@@ -1,0 +1,11 @@
+{
+  "requirementsDirectory": "docs/requirements",
+  "unitTestDirectories": [
+    "tests/unit"
+  ],
+  "acceptanceTestDirectory": "tests/acceptance",
+  "acceptanceReportDirectory": "docs/test-reports/acceptance",
+  "recheckReportDirectory": "docs/test-reports/recheck",
+  "unitTestCommand": "REPLACE_WITH_UNIT_TEST_COMMAND",
+  "acceptanceTestCommand": "REPLACE_WITH_ACCEPTANCE_TEST_COMMAND"
+}

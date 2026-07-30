@@ -1,0 +1,77 @@
+# ==============================================================
+# 주의
+# Git 은 .gitignore 에서 줄 끝 주석을 지원하지 않는다.
+# 패턴과 같은 줄에 # 를 쓰면 그 텍스트까지 패턴의 일부가 된다.
+# 주석은 반드시 줄 전체를 차지해야 한다.
+# ==============================================================
+
+# --- 워크플로 임시 파일 ---
+# 프롬프트 원본, stderr 로그, JUnit XML 이 여기 쌓인다.
+workflow/.tmp/
+
+# --- 로컬 전용 설정 ---
+.claude/settings.local.json
+
+# --- 진단 스크립트 백업 잔여물 ---
+*.diagnostic-backup
+
+# --- 비밀 정보 ---
+.env
+.env.*
+secrets/
+credentials/
+*.pem
+*.key
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# --- Node ---
+node_modules/
+.npm/
+.pnpm-store/
+
+# --- .NET ---
+bin/
+obj/
+*.user
+
+# --- Java ---
+target/
+.gradle/
+
+# --- 빌드 및 커버리지 산출물 ---
+dist/
+build/
+out/
+coverage/
+htmlcov/
+.coverage
+*.log
+
+# --- 편집기 및 OS ---
+.vs/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ==============================================================
+# 의도적으로 추적하는 항목 (무시하지 않는다)
+#
+#   docs/requirements/**   요구사항 정본
+#   docs/design/**         디자인 산출물과 버전
+#   docs/test-reports/**   테스트 및 재검토 보고서
+#   workflow/config.json   프로젝트 설정
+#   workflow/state.json    워크플로 상태
+#
+# git 소유권 가드가 "깨끗한 작업 트리" 를 기준으로 동작하므로
+# 위 경로는 반드시 추적 상태여야 한다.
+# ==============================================================

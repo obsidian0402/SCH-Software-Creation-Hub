@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 2,
+
+  "stack": {
+    "preset": "REPLACE_WITH_PRESET",
+    "note": "workflow/presets.json 의 키 중 하나. init-workspace.ps1 이 채운다."
+  },
+
+  "paths": {
+    "productCode": ["src"],
+    "unitTests": "tests/unit",
+    "moduleTests": "tests/module",
+    "systemTests": "tests/system",
+
+    "systemRequirements": "docs/requirements/system",
+    "moduleRequirements": "docs/requirements/modules",
+    "traceability": "docs/requirements",
+
+    "design": "docs/design",
+    "designAssets": "design-assets",
+
+    "moduleTestReports": "docs/test-reports/module",
+    "systemTestReports": "docs/test-reports/system",
+    "recheckReports": "docs/test-reports/recheck",
+
+    "prompts": "workflow/prompts",
+    "rules": "workflow/rules",
+    "temp": "workflow/.tmp",
+    "state": "workflow/state.json"
+  },
+
+  "commands": {
+    "unitTest": "REPLACE_WITH_UNIT_TEST_COMMAND",
+    "moduleTest": "REPLACE_WITH_MODULE_TEST_COMMAND",
+    "systemTest": "REPLACE_WITH_SYSTEM_TEST_COMMAND"
+  },
+
+  "junit": {
+    "moduleTest": "workflow/.tmp/junit/module-{module}.xml",
+    "systemTest": "workflow/.tmp/junit/system.xml"
+  },
+
+  "codex": {
+    "sandbox": "danger-full-access",
+    "askForApproval": "never",
+    "timeoutSeconds": 1800,
+    "preferShim": ".ps1",
+    "note": "sandbox 는 read-only / workspace-write / danger-full-access 중 하나. 전권을 주고 경계는 guards 로 지킨다."
+  },
+
+  "ids": {
+    "systemFunctional": "SYS-FR",
+    "systemNonFunctional": "SYS-NFR",
+    "systemAcceptance": "SYS-AC",
+
+    "moduleFunctional": "MOD-{MODULE}-FR",
+    "moduleNonFunctional": "MOD-{MODULE}-NFR",
+    "moduleAcceptance": "MOD-{MODULE}-AC",
+
+    "designFlow": "FLOW",
+    "designScreen": "SCREEN",
+    "designState": "STATE",
+    "designComponent": "COMP",
+    "designOpenQuestion": "ODQ",
+
+    "sequenceFormat": "000",
+    "note": "{MODULE} 은 대문자 모듈 ID 로 치환된다. 예: MOD-AUTH-FR-001"
+  },
+
+  "designSpaces": [
+    { "key": "workflow",  "directory": "1-workflow",  "label": "사용자 워크플로우" },
+    { "key": "wireframe", "directory": "2-wireframe", "label": "와이어프레임" },
+    { "key": "ui",        "directory": "3-ui",        "label": "UI 스펙" }
+  ],
+
+  "guards": {
+    "requireCleanGitTree": true,
+    "protectedTrees": ["src", "tests/unit"],
+    "protectedTreesNote": "Claude 소유 영역. Codex 실행 전후 해시를 비교해 gitignore 사각지대까지 침범을 잡는다."
+  },
+
+  "stages": {
+    "requirements-system": {
+      "allow": ["{systemRequirements}", "{moduleRequirements}"],
+      "prompt": "requirements-system.md",
+      "reportDirectory": null
+    },
+    "requirements-module": {
+      "allow": ["{moduleRequirements}/{module}"],
+      "prompt": "requirements-module.md",
+      "reportDirectory": null
+    },
+    "design": {
+      "allow": ["{design}/{module}", "{designAssets}/{module}"],
+      "prompt": null,
+      "reportDirectory": null
+    },
+    "test-module": {
+      "allow": ["{moduleTests}/{module}"],
+      "prompt": "test-module.md",
+      "reportDirectory": "{moduleTestReports}/{module}"
+    },
+    "test-system": {
+      "allow": ["{systemTests}"],
+      "prompt": "test-system.md",
+      "reportDirectory": "{systemTestReports}"
+    },
+    "recheck-module": {
+      "allow": ["{moduleTests}/{module}"],
+      "prompt": "recheck.md",
+      "reportDirectory": "{recheckReports}"
+    },
+    "recheck-system": {
+      "allow": ["{systemTests}"],
+      "prompt": "recheck.md",
+      "reportDirectory": "{recheckReports}"
+    }
+  },
+
+  "validation": {
+    "minRequirementLength": 400,
+    "requiredRequirementMarkers": ["## 12. 인수 조건"],
+    "minReportLength": 200,
+    "note": "Codex 응답을 파일에 쓰기 전 최소 검증. 실패하면 원본을 덮어쓰지 않고 .rejected 로 남긴다."
+  }
+}

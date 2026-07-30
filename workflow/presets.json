@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 2,
+
+  "note": [
+    "스택 프리셋. init-workspace.ps1 이 여기서 골라 config.json 의 commands 와 junit 을 채운다.",
+    "{module} 은 소문자 모듈 ID 로 치환된다.",
+    "테스트 이름 또는 속성에 요구사항 ID 를 박아야 추적성 파서가 매핑을 잡을 수 있다."
+  ],
+
+  "presets": {
+    "python-pytest": {
+      "label": "Python + pytest",
+      "commands": {
+        "unitTest": "python -m pytest tests/unit -q",
+        "moduleTest": "python -m pytest tests/module/{module} -q --junitxml=workflow/.tmp/junit/module-{module}.xml",
+        "systemTest": "python -m pytest tests/system -q --junitxml=workflow/.tmp/junit/system.xml"
+      },
+      "junit": {
+        "moduleTest": "workflow/.tmp/junit/module-{module}.xml",
+        "systemTest": "workflow/.tmp/junit/system.xml"
+      },
+      "idConvention": {
+        "style": "test-name",
+        "example": "def test_MOD_AUTH_AC_004_expired_token_is_rejected():",
+        "scanPattern": "(?i)(SYS|MOD)[_-][A-Z0-9_-]*?(FR|NFR|AC)[_-]\\d{3}",
+        "hint": "ID 의 하이픈을 밑줄로 바꿔 함수명에 넣는다. 파서는 양쪽 표기를 모두 인식한다."
+      },
+      "testFileGlobs": ["tests/module/**/*.py", "tests/system/**/*.py"]
+    },
+
+    "node-vitest": {
+      "label": "Node.js + Vitest",
+      "commands": {
+        "unitTest": "npx vitest run tests/unit",
+        "moduleTest": "npx vitest run tests/module/{module} --reporter=junit --outputFile=workflow/.tmp/junit/module-{module}.xml",
+        "systemTest": "npx vitest run tests/system --reporter=junit --outputFile=workflow/.tmp/junit/system.xml"
+      },
+      "junit": {
+        "moduleTest": "workflow/.tmp/junit/module-{module}.xml",
+        "systemTest": "workflow/.tmp/junit/system.xml"
+      },
+      "idConvention": {
+        "style": "test-name",
+        "example": "it('MOD-AUTH-AC-004 만료된 토큰은 거부된다', () => { ... })",
+        "scanPattern": "(?i)(SYS|MOD)[_-][A-Z0-9_-]*?(FR|NFR|AC)[_-]\\d{3}",
+        "hint": "테스트 제목 맨 앞에 ID 를 둔다."
+      },
+      "testFileGlobs": ["tests/module/**/*.{ts,js,mts,mjs}", "tests/system/**/*.{ts,js,mts,mjs}"]
+    },
+
+    "node-jest": {
+      "label": "Node.js + Jest",
+      "commands": {
+        "unitTest": "npx jest tests/unit",
+        "moduleTest": "npx jest tests/module/{module} --reporters=default --reporters=jest-junit",
+        "systemTest": "npx jest tests/system --reporters=default --reporters=jest-junit"
+      },
+      "junit": {
+        "moduleTest": "workflow/.tmp/junit/module-{module}.xml",
+        "systemTest": "workflow/.tmp/junit/system.xml"
+      },
+      "idConvention": {
+        "style": "test-name",
+        "example": "it('MOD-AUTH-AC-004 만료된 토큰은 거부된다', () => { ... })",
+        "scanPattern": "(?i)(SYS|MOD)[_-][A-Z0-9_-]*?(FR|NFR|AC)[_-]\\d{3}",
+        "hint": "jest-junit 을 devDependency 로 설치하고 JEST_JUNIT_OUTPUT_FILE 로 경로를 지정한다."
+      },
+      "testFileGlobs": ["tests/module/**/*.{ts,js}", "tests/system/**/*.{ts,js}"]
+    },
+
+    "dotnet-xunit": {
+      "label": ".NET + xUnit",
+      "commands": {
+        "unitTest": "dotnet test tests/Unit.Tests",
+        "moduleTest": "dotnet test tests/Module.{module}.Tests --logger \"junit;LogFilePath=../../workflow/.tmp/junit/module-{module}.xml\"",
+        "systemTest": "dotnet test tests/System.Tests --logger \"junit;LogFilePath=../../workflow/.tmp/junit/system.xml\""
+      },
+      "junit": {
+        "moduleTest": "workflow/.tmp/junit/module-{module}.xml",
+        "systemTest": "workflow/.tmp/junit/system.xml"
+      },
+      "idConvention": {
+        "style": "trait",
+        "example": "[Trait(\"AC\", \"MOD-AUTH-AC-004\")]",
+        "scanPattern": "(?i)(SYS|MOD)[_-][A-Z0-9_-]*?(FR|NFR|AC)[_-]\\d{3}",
+        "hint": "JunitXml.TestLogger 패키지가 필요하다. Trait 대신 메서드명에 ID 를 넣어도 인식한다."
+      },
+      "testFileGlobs": ["tests/Module.*.Tests/**/*.cs", "tests/System.Tests/**/*.cs"]
+    }
+  }
+}

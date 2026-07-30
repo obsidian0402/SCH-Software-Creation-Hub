@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 2,
+  "activeModuleId": null,
+  "system": {
+    "requirementPath": "docs/requirements/system/system.md",
+    "revision": 0,
+    "hash": null,
+    "status": "empty",
+    "updatedAt": null
+  },
+  "modules": {},
+  "history": []
+}
