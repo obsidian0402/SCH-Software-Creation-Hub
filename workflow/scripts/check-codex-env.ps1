@@ -278,7 +278,7 @@ $ExecHelpText = "$($ExecHelp.StdOut)$($ExecHelp.StdErr)"
 $RootHelp = Invoke-Native -Command $CodexInvoke -Arguments @("--help")
 $RootHelpText = "$($RootHelp.StdOut)$($RootHelp.StdErr)"
 
-# WrapperPosition = 현재 Invoke-CodexFinalMessage 가 플래그를 두는 위치
+# WrapperPosition = Common.ps1 의 Invoke-CodexPrompt 가 플래그를 두는 위치
 $FlagChecks = @(
     [pscustomobject]@{ Flag = "--cd";                  WrapperPosition = "root" }
     [pscustomobject]@{ Flag = "--sandbox";             WrapperPosition = "root" }
@@ -542,7 +542,7 @@ Write-Host "판정: FAIL $FailCount / WARN $WarnCount" -ForegroundColor $(
 Write-Host ""
 Write-Host "해석 지침" -ForegroundColor Cyan
 Write-Host "  5단계 FAIL  래퍼가 플래그를 잘못된 위치에 둡니다."
-Write-Host "              Invoke-CodexFinalMessage 의 인자 배치를 고치세요."
+Write-Host "              Common.ps1 의 Invoke-CodexPrompt 안 CodexArgs 배치를 고치세요."
 Write-Host ""
 Write-Host "  7단계 FAIL  프로젝트 .codex/config.toml 이 무시됩니다."
 Write-Host "              권한은 홈 config 또는 래퍼 CLI 플래그로 통제하세요."

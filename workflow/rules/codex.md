@@ -109,9 +109,18 @@ Codex는 전권 샌드박스로 실행된다. 능력 제한은 없다. 대신 �
 1. `/requirements system` 실행 시 시스템 요구사항 문서에 **모듈 분해 표**를
    포함한다. 각 모듈에 모듈 ID, 이름, 책임, 담당하는 `SYS-FR` ID를 기록한다.
 2. 래퍼가 각 모듈의 요구사항 스켈레톤을 만들고 상태를 `proposed`로 둔다.
-3. 사용자가 목록을 검토하고 `/requirements confirm-modules`로 확정한다.
-   추가는 신설, 삭제는 `_archived/`로 이동한다. 파일을 지우지 않는다.
-4. 확정 전까지 `/design-start`와 `/codex-test`는 해당 모듈에서 거부된다.
+3. 사용자가 목록을 검토하고 `/requirements confirm-modules`로 확정한다. 상태가
+   `confirmed`로 바뀐다. 확정되지 않은 모듈은 `_archived/`로 이동한다.
+   파일을 지우지 않는다.
+4. `/requirements module <모듈>`로 각 모듈 요구사항을 작성하면
+   `requirements_ready`가 된다.
+
+상태 전이는 다음과 같다.
+
+    proposed → confirmed → requirements_ready → design_ready → implemented → verified
+
+`proposed` 또는 `confirmed` 상태에서는 strict 모드에서 `/design-start`와
+`/codex-test module`이 거부된다.
 
 모듈 분해를 제안할 때 다음을 지킨다.
 
@@ -323,12 +332,16 @@ Codex는 테스트 실행을 생략하고 결과를 추측해서는 안 된다.
       3-ui/           UI 스펙
       _meta.json      기준 요구사항 개정과 해시 (수정 금지)
       BRIEF-FOR-CODEX.md
+      traceability.md / .json   (design-close 가 생성)
 
     design-assets/<모듈>/v001/
       workflow/  wireframe/  ui/
 
-버전은 불변이다. 기존 `v001`을 고치지 않는다. 상위 요구사항 개정이 올라가면
-`/design-start`가 새 버전을 만든다.
+strict 모드에서 버전은 불변이다. 기존 `v001`을 고치지 않는다. 상위 요구사항
+개정이 올라가면 `/design-start`가 새 버전을 만든다.
+
+vibe 모드에서는 `v001` 대신 `draft` 한 폴더에서 반복한다. 버전을 강제로 올리려면
+`/design-start <모듈> --new-version`을 쓴다.
 
 ### 기준 요구사항
 
@@ -349,6 +362,13 @@ Codex는 테스트 실행을 생략하고 결과를 추측해서는 안 된다.
 **모든 FLOW, SCREEN, STATE, COMP는 관련된 `MOD-<모듈>-FR`, `-NFR`, 또는
 `-AC` ID를 기록해야 한다.** `/design-close`가 파싱해 검증하고, 상위가 없으면
 고아로 판정한다.
+
+각 문서에서 아래 헤더의 표를 사용한다. 파서가 헤더 이름으로 열을 찾으므로
+문구를 바꾸면 안 된다.
+
+    | ID | 이름 | 상위 | 설명 |
+    |---|---|---|---|
+    | FLOW-001 | 로그인 | MOD-AUTH-FR-001 | |
 
 ### 산출물
 

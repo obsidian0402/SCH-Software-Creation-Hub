@@ -68,6 +68,48 @@
       "testFileGlobs": ["tests/module/**/*.{ts,js}", "tests/system/**/*.{ts,js}"]
     },
 
+    "electron-vitest-playwright": {
+      "label": "Electron + TypeScript + React (Vitest + Playwright)",
+      "commands": {
+        "unitTest": "npx vitest run tests/unit",
+        "moduleTest": "npx vitest run tests/module/{module} --reporter=junit --outputFile=workflow/.tmp/junit/module-{module}.xml",
+        "systemTest": "npx playwright test tests/system --reporter=junit"
+      },
+      "junit": {
+        "moduleTest": "workflow/.tmp/junit/module-{module}.xml",
+        "systemTest": "workflow/.tmp/junit/system.xml"
+      },
+      "idConvention": {
+        "style": "test-name",
+        "example": "it('MOD-AUTH-AC-004 만료된 토큰은 거부된다', () => { ... })",
+        "scanPattern": "(?i)(SYS|MOD)[_-][A-Z0-9_-]*?(FR|NFR|AC)[_-]\\d{3}",
+        "hint": "테스트 제목 맨 앞에 ID 를 둔다."
+      },
+      "notes": [
+        "system 계층은 Playwright 의 Electron 지원으로 빌드된 앱을 실제 구동한다.",
+        "playwright.config.ts 에서 JUnit 출력 경로를 workflow/.tmp/junit/system.xml 로 지정해야 한다.",
+        "  reporter: [['junit', { outputFile: 'workflow/.tmp/junit/system.xml' }]]",
+        "unit 계층은 src/core 의 순수 TypeScript 만 대상으로 한다. Electron 을 띄우지 않으므로 밀리초 단위로 끝난다.",
+        "메인 프로세스는 얇게 유지하고 비즈니스 로직은 src/core 에 둔다. 이 규칙이 테스트 3계층 분리의 전제다."
+      ],
+      "architecture": {
+        "src/core": "순수 TypeScript. electron import 금지. Node 에서 그대로 실행된다.",
+        "src/main": "창 생성, IPC 배선, OS 연동만",
+        "src/preload": "contextBridge 노출",
+        "src/renderer": "React",
+        "src/shared": "IPC 채널 정의와 공용 타입"
+      },
+      "securityInvariants": [
+        "contextIsolation: true",
+        "nodeIntegration: false",
+        "sandbox: true",
+        "렌더러에서 Node API 직접 접근 금지",
+        "모든 IPC 는 preload 의 contextBridge 경유",
+        "IPC 채널과 타입은 src/shared/ipc.ts 한 파일에만 정의",
+        "@electron/remote 사용 금지"
+      ]
+    },
+
     "dotnet-xunit": {
       "label": ".NET + xUnit",
       "commands": {

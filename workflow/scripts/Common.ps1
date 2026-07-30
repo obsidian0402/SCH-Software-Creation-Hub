@@ -1020,11 +1020,404 @@ function Get-CodexPromptTemplate {
         [Parameter(Mandatory)][string]$FileName
     )
 
-    $Path = Join-Path $Root ((Join-Path $Config.paths.prompts $FileName) -replace "/", "\")
+    $Path = Join-Path $Root ($Config.paths.prompts -replace "/", "\") $FileName
 
     if (-not (Test-Path -LiteralPath $Path)) {
         throw "프롬프트 템플릿이 없습니다: $Path"
     }
 
     return (Read-Utf8File -Path $Path)
+}
+
+function Expand-CodexPlaceholder {
+    <#
+        프롬프트 템플릿의 {{KEY}} 를 치환한다.
+        치환되지 않은 자리표시자가 남으면 오류로 처리한다.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Template,
+        [Parameter(Mandatory)][hashtable]$Values
+    )
+
+    $Result = $Template
+
+    foreach ($Key in $Values.Keys) {
+        $Replacement = if ($null -eq $Values[$Key]) { "" } else { [string]$Values[$Key] }
+        $Result = $Result.Replace("{{$Key}}", $Replacement)
+    }
+
+    $Leftover = [regex]::Matches($Result, '\{\{[A-Z_]+\}\}')
+
+    if ($Leftover.Count -gt 0) {
+        $Names = ($Leftover | ForEach-Object { $_.Value } | Sort-Object -Unique) -join ", "
+        throw "프롬프트 자리표시자가 치환되지 않았습니다: $Names"
+    }
+
+    return $Result
+}
+
+# ===============================================================
+# 모드 (vibe / strict)
+# ===============================================================
+
+function Get-CodexMode {
+    <#
+        모듈별 설정이 있으면 그것을, 없으면 프로젝트 기본값을 쓴다.
+    #>
+    param(
+        [Parameter(Mandatory)][object]$Config,
+        [object]$State,
+        [string]$ModuleId
+    )
+
+    $Mode = Get-CodexProperty -Object $Config -Name "mode" -Default "strict"
+
+    if ($State -and -not [string]::IsNullOrWhiteSpace($ModuleId)) {
+        $Names = $State.modules.PSObject.Properties.Name
+
+        if ($Names -contains $ModuleId) {
+            $Override = Get-CodexProperty -Object $State.modules.$ModuleId -Name "mode" -Default $null
+
+            if (-not [string]::IsNullOrWhiteSpace($Override)) {
+                $Mode = $Override
+            }
+        }
+    }
+
+    if ($Mode -notin @("vibe", "strict")) {
+        throw "알 수 없는 모드입니다: $Mode (vibe 또는 strict)"
+    }
+
+    return $Mode
+}
+
+function Write-CodexModeBanner {
+    param(
+        [Parameter(Mandatory)][string]$Mode,
+        [Parameter(Mandatory)][string]$Stage,
+        [string]$ModuleId
+    )
+
+    $Target = if ([string]::IsNullOrWhiteSpace($ModuleId)) { "(시스템)" } else { $ModuleId }
+    $Color = if ($Mode -eq "strict") { "Cyan" } else { "Yellow" }
+
+    Write-Host ""
+    Write-Host "[$Stage] 대상 $Target / 모드 $Mode" -ForegroundColor $Color
+
+    if ($Mode -eq "vibe") {
+        Write-Host "  vibe 모드: 깨끗한 git 트리와 경로 허용 목록 가드를 생략합니다." -ForegroundColor Yellow
+        Write-Host "  보호 트리(src, tests/unit) 해시 가드는 계속 동작합니다." -ForegroundColor Yellow
+    }
+}
+
+# ===============================================================
+# 가드 컨텍스트
+# ===============================================================
+
+function Start-CodexGuard {
+    <#
+        Codex 실행 전 가드를 준비한다.
+
+        중요
+          경로 허용 목록 가드는 "실행 전 트리가 깨끗함" 을 전제로 한다.
+          더러운 트리에서 돌리면 사용자의 기존 작업을 Codex 변경으로 오인해
+          자동 삭제한다. 그래서 두 검사를 하나의 컨텍스트로 묶어
+          스크립트가 따로 호출할 수 없게 만든다.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][object]$Config,
+        [Parameter(Mandatory)][string]$Mode,
+        [Parameter(Mandatory)][string[]]$AllowedPaths
+    )
+
+    $UsePathGuard = ($Mode -eq "strict") -and
+                    (Get-CodexProperty -Object $Config.guards -Name "requireCleanGitTree" -Default $true)
+
+    if ($UsePathGuard) {
+        Assert-CleanGitWorkingTree -Root $Root
+    }
+
+    $ProtectedTrees = @(
+        Get-CodexProperty -Object $Config.guards -Name "protectedTrees" -Default @()
+    )
+
+    $Snapshot = @{}
+
+    if ($ProtectedTrees.Count -gt 0) {
+        $Snapshot = Get-CodexTreeSnapshot -Root $Root -Trees $ProtectedTrees
+    }
+
+    return [pscustomobject]@{
+        Root           = $Root
+        Mode           = $Mode
+        UsePathGuard   = $UsePathGuard
+        AllowedPaths   = $AllowedPaths
+        ProtectedTrees = $ProtectedTrees
+        Snapshot       = $Snapshot
+    }
+}
+
+function Complete-CodexGuard {
+    <# Codex 실행 후 소유권을 검증한다. #>
+    param(
+        [Parameter(Mandatory)][object]$Guard
+    )
+
+    # 2겹: 보호 트리 해시. git 과 무관하므로 두 모드 모두에서 동작한다.
+    if ($Guard.ProtectedTrees.Count -gt 0) {
+        $After = Get-CodexTreeSnapshot -Root $Guard.Root -Trees $Guard.ProtectedTrees
+
+        Assert-ProtectedTreesUnchanged `
+            -Before $Guard.Snapshot `
+            -After $After `
+            -Trees $Guard.ProtectedTrees
+    }
+
+    # 1겹: 경로 허용 목록. 깨끗한 트리를 전제로 하므로 strict 에서만.
+    if ($Guard.UsePathGuard) {
+        Assert-OnlyAllowedPathsChanged `
+            -Root $Guard.Root `
+            -AllowedPaths $Guard.AllowedPaths
+    }
+    else {
+        Write-Host "경로 허용 목록 가드 생략 (vibe 모드)" -ForegroundColor Yellow
+        Write-Host "  허용 예정 경로: $($Guard.AllowedPaths -join ', ')"
+        Write-Host "  git diff 로 Codex 가 건드린 범위를 직접 확인하세요."
+    }
+}
+
+# ===============================================================
+# 요구사항 ID
+# ===============================================================
+
+function Get-CodexIdRegex {
+    param(
+        [Parameter(Mandatory)][object]$Config
+    )
+
+    return [regex]::new(
+        (Get-CodexProperty -Object $Config.traceability -Name "idPattern" `
+            -Default '(?i)\b(SYS|MOD)[-_][A-Z0-9_-]*?(FR|NFR|AC)[-_][0-9]{3}\b')
+    )
+}
+
+function ConvertTo-CodexId {
+    <# MOD_AUTH_AC_004 와 mod-auth-ac-004 를 MOD-AUTH-AC-004 로 정규화한다. #>
+    param(
+        [Parameter(Mandatory)][string]$Raw
+    )
+
+    return $Raw.Trim().ToUpperInvariant().Replace("_", "-")
+}
+
+function Get-CodexIdsFromText {
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Text,
+        [Parameter(Mandatory)][regex]$Pattern
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Text)) {
+        return @()
+    }
+
+    return @(
+        $Pattern.Matches($Text) |
+            ForEach-Object { ConvertTo-CodexId -Raw $_.Value } |
+            Sort-Object -Unique
+    )
+}
+
+# ===============================================================
+# 마크다운 표 파서
+# ===============================================================
+
+function Read-CodexMarkdownTables {
+    <#
+        마크다운 표를 헤더 이름으로 열을 매핑해 객체 배열로 돌려준다.
+
+        열 위치에 의존하지 않으므로 Codex 가 열 순서를 바꿔도 견딘다.
+        각 행에는 다음 메타가 붙는다.
+
+          _Heading   그 표 직전의 가장 가까운 제목
+          _RawLine   원본 행 문자열
+    #>
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Markdown
+    )
+
+    $Rows = [System.Collections.Generic.List[pscustomobject]]::new()
+
+    if ([string]::IsNullOrWhiteSpace($Markdown)) {
+        return $Rows
+    }
+
+    $Lines = $Markdown -split "`r?`n"
+    $CurrentHeading = ""
+    $Headers = $null
+
+    foreach ($Line in $Lines) {
+        $Trimmed = $Line.Trim()
+
+        if ($Trimmed -match '^#{1,6}\s+(.+)$') {
+            $CurrentHeading = $Matches[1].Trim()
+            $Headers = $null
+            continue
+        }
+
+        $IsTableRow = $Trimmed.StartsWith("|") -and $Trimmed.EndsWith("|") -and $Trimmed.Length -gt 2
+
+        if (-not $IsTableRow) {
+            $Headers = $null
+            continue
+        }
+
+        # 구분선  |---|---|
+        if ($Trimmed -match '^\|[\s\-:|]+\|$') {
+            continue
+        }
+
+        $Cells = @(
+            $Trimmed.Trim("|") -split '\|' | ForEach-Object { $_.Trim() }
+        )
+
+        if ($null -eq $Headers) {
+            $Headers = $Cells
+            continue
+        }
+
+        $Row = [ordered]@{
+            _Heading = $CurrentHeading
+            _RawLine = $Trimmed
+        }
+
+        for ($Index = 0; $Index -lt $Headers.Count; $Index++) {
+            $Name = $Headers[$Index]
+
+            if ([string]::IsNullOrWhiteSpace($Name)) { continue }
+            if ($Row.Contains($Name)) { continue }
+
+            $Row[$Name] = if ($Index -lt $Cells.Count) { $Cells[$Index] } else { "" }
+        }
+
+        $Rows.Add([pscustomobject]$Row)
+    }
+
+    return $Rows
+}
+
+function Get-CodexCell {
+    <# 표 행에서 열 이름으로 값을 꺼낸다. 없으면 빈 문자열. #>
+    param(
+        [Parameter(Mandatory)][object]$Row,
+        [Parameter(Mandatory)][string]$Column
+    )
+
+    return [string](Get-CodexProperty -Object $Row -Name $Column -Default "")
+}
+
+# ===============================================================
+# 모듈 엔트리
+# ===============================================================
+
+function New-CodexModuleEntry {
+    param(
+        [Parameter(Mandatory)][string]$ModuleId,
+        [Parameter(Mandatory)][string]$ModuleName,
+        [Parameter(Mandatory)][string]$RequirementPath,
+        [Parameter(Mandatory)][int]$SystemRevision,
+        [string]$Responsibility = "",
+        [string[]]$CoveredSystemRequirements = @()
+    )
+
+    return [pscustomobject]([ordered]@{
+        moduleId                  = $ModuleId
+        moduleName                = $ModuleName
+        responsibility            = $Responsibility
+        coveredSystemRequirements = @($CoveredSystemRequirements)
+        requirementPath           = $RequirementPath
+        revision                  = 0
+        hash                      = $null
+        parentSystemRevision      = $SystemRevision
+        status                    = "proposed"
+        stale                     = $false
+        staleReason               = $null
+        mode                      = $null
+        design                    = $null
+        tests                     = $null
+        updatedAt                 = (Get-Date).ToString("o")
+    })
+}
+
+function Add-CodexHistory {
+    param(
+        [Parameter(Mandatory)][object]$State,
+        [Parameter(Mandatory)][string]$Stage,
+        [string]$ModuleId,
+        [string]$Detail = ""
+    )
+
+    $Entry = [pscustomobject]([ordered]@{
+        at       = (Get-Date).ToString("o")
+        stage    = $Stage
+        moduleId = $ModuleId
+        detail   = $Detail
+    })
+
+    $Existing = @(Get-CodexProperty -Object $State -Name "history" -Default @())
+
+    # 최근 200 건만 보관한다.
+    $Combined = @($Existing) + @($Entry)
+
+    if ($Combined.Count -gt 200) {
+        $Combined = $Combined[($Combined.Count - 200)..($Combined.Count - 1)]
+    }
+
+    Set-CodexProperty -Object $State -Name "history" -Value @($Combined)
+}
+
+function Get-CodexModuleIds {
+    param(
+        [Parameter(Mandatory)][object]$State
+    )
+
+    return @($State.modules.PSObject.Properties.Name | Sort-Object)
+}
+
+function Resolve-CodexModuleId {
+    <#
+        사용자가 대소문자를 섞어 입력해도 등록된 모듈에 맞춘다.
+        생략하면 activeModuleId 를 쓴다.
+    #>
+    param(
+        [Parameter(Mandatory)][object]$State,
+        [string]$ModuleId
+    )
+
+    if ([string]::IsNullOrWhiteSpace($ModuleId)) {
+        $Active = Get-CodexProperty -Object $State -Name "activeModuleId" -Default $null
+
+        if ([string]::IsNullOrWhiteSpace($Active)) {
+            throw @"
+대상 모듈을 지정하지 않았고 활성 모듈도 없습니다.
+
+등록된 모듈: $((Get-CodexModuleIds -State $State) -join ', ')
+"@
+        }
+
+        return $Active
+    }
+
+    $Known = Get-CodexModuleIds -State $State
+    $Match = $Known | Where-Object { $_ -ieq $ModuleId.Trim() } | Select-Object -First 1
+
+    if ($Match) {
+        return $Match
+    }
+
+    throw @"
+등록되지 않은 모듈입니다: $ModuleId
+
+등록된 모듈: $(if ($Known.Count -gt 0) { $Known -join ', ' } else { '(없음)' })
+"@
 }

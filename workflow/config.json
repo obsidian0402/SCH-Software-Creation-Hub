@@ -1,6 +1,19 @@
 {
   "schemaVersion": 2,
 
+  "mode": "vibe",
+  "modeNote": [
+    "vibe   탐색 단계. 마찰을 줄인다.",
+    "         - 깨끗한 git 트리를 요구하지 않는다",
+    "         - 경로 허용 목록 가드를 끈다 (더러운 트리에서는 사용자 작업과 구분할 수 없으므로 위험)",
+    "         - 보호 트리 해시 가드는 유지한다 (git 과 무관하게 동작)",
+    "         - proposed / stale 차단을 경고로 낮춘다",
+    "         - 추적성 위반을 경고로 낮춘다",
+    "         - 디자인을 draft 단일 폴더에 쓴다",
+    "strict 안정 단계. 모든 게이트를 켠다.",
+    "모듈별로 modules.<모듈>.mode 로 덮어쓸 수 있다."
+  ],
+
   "stack": {
     "preset": "REPLACE_WITH_PRESET",
     "note": "workflow/presets.json 의 키 중 하나. init-workspace.ps1 이 채운다."
@@ -119,8 +132,41 @@
 
   "validation": {
     "minRequirementLength": 400,
-    "requiredRequirementMarkers": ["## 12. 인수 조건"],
+    "requiredRequirementMarkers": ["## 인수 조건"],
     "minReportLength": 200,
     "note": "Codex 응답을 파일에 쓰기 전 최소 검증. 실패하면 원본을 덮어쓰지 않고 .rejected 로 남긴다."
-  }
+  },
+
+  "traceability": {
+    "idPattern": "(?i)\\b(SYS|MOD)[-_][A-Z0-9_-]*?(FR|NFR|AC)[-_][0-9]{3}\\b",
+    "testSourceDirectories": ["tests/module", "tests/system"],
+    "moduleDecompositionHeading": "모듈 분해",
+    "output": {
+      "json": "docs/requirements/traceability.json",
+      "markdown": "docs/requirements/traceability.md"
+    },
+    "columns": {
+      "id": "ID",
+      "parent": "상위",
+      "implementedBy": "구현 모듈",
+      "relatedRequirement": "관련 요구사항",
+      "moduleId": "모듈 ID",
+      "moduleName": "모듈 이름",
+      "responsibility": "책임",
+      "coveredSystemRequirements": "담당 시스템 요구사항"
+    },
+    "note": [
+      "표는 헤더 이름으로 열을 찾는다. 위 columns 값과 프롬프트 템플릿의 표 헤더가 일치해야 한다.",
+      "ID 는 하이픈과 밑줄 표기를 모두 인식하고 대문자 하이픈 형태로 정규화한다."
+    ]
+  },
+
+  "statuses": [
+    "proposed",
+    "confirmed",
+    "requirements_ready",
+    "design_ready",
+    "implemented",
+    "verified"
+  ]
 }
