@@ -166,7 +166,8 @@ TODO
 이 프로젝트는 요구사항·제품 디자인·모듈/시스템 테스트를 Codex 가, 제품 코드
 구현과 단위 테스트를 Claude 가 담당하는 이중 에이전트 워크플로를 사용한다.
 
-- 프레임워크 사용법: `workflow/README.md`
+- **사용 설명서: `workflow/GUIDE.md`** ← 여기서 시작
+- 구조 레퍼런스: `workflow/README.md`
 - Codex 규칙: `workflow/rules/codex.md`
 - Claude 규칙: `workflow/rules/claude.md`
 
