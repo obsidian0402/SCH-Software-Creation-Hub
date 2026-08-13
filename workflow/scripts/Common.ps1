@@ -1405,7 +1405,12 @@ function Get-CodexModuleIds {
         [Parameter(Mandatory)][object]$State
     )
 
-    return ,@(Get-CodexPropertyNames -Object $State.modules | Sort-Object)
+    # Get-CodexPropertyNames 는 쉼표 연산자로 배열을 감싸 단일 파이프라인
+    # 객체로 반환한다. 그 반환값을 곧바로 Sort-Object 에 파이프하면
+    # Sort-Object 가 "배열 하나"를 원소 하나로 취급해 정렬이 무력화된다.
+    # 반드시 변수에 담아 펼친 뒤 정렬해야 한다.
+    $Names = Get-CodexPropertyNames -Object $State.modules
+    return ,@($Names | Sort-Object)
 }
 
 function Resolve-CodexModuleId {

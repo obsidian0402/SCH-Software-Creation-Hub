@@ -1,13 +1,100 @@
 {
   "schemaVersion": 2,
-  "activeModuleId": null,
+  "activeModuleId": "UI",
   "system": {
     "requirementPath": "docs/requirements/system/system.md",
-    "revision": 0,
-    "hash": null,
-    "status": "empty",
-    "updatedAt": null
+    "revision": 1,
+    "hash": "DF66D4DDE5E8BDCEFAF144805039C6FBAD0DCBF4B4E3485AB63B5FF2A90E2775",
+    "status": "requirements_ready",
+    "updatedAt": "2026-08-13T10:39:47.0484689+09:00"
   },
-  "modules": {},
-  "history": []
+  "modules": {
+    "CALC": {
+      "moduleId": "CALC",
+      "moduleName": "계산 및 상태",
+      "responsibility": "숫자와 연산 상태를 관리하고 사칙연산, 반복 계산, 초기화, 한 자리 삭제 및 오류 전이를 처리한다.",
+      "coveredSystemRequirements": [
+        "SYS-FR-001",
+        "SYS-FR-002",
+        "SYS-FR-003",
+        "SYS-FR-004",
+        "SYS-FR-005",
+        "SYS-FR-006",
+        "SYS-FR-007",
+        "SYS-FR-008",
+        "SYS-FR-009",
+        "SYS-FR-010",
+        "SYS-FR-014"
+      ],
+      "requirementPath": "docs/requirements/modules/calc/requirements.md",
+      "revision": 1,
+      "hash": "BEF89DF35B236010C04FA843DA0919FE4CF3B8C58832040463AD830F1292B6E3",
+      "parentSystemRevision": 1,
+      "status": "requirements_ready",
+      "stale": false,
+      "staleReason": null,
+      "mode": null,
+      "design": null,
+      "tests": null,
+      "updatedAt": "2026-08-13T12:32:01.9634607+09:00"
+    },
+    "UI": {
+      "moduleId": "UI",
+      "moduleName": "데스크톱 사용자 인터페이스",
+      "responsibility": "마우스와 키보드 입력을 수집하고 계산 모듈에 전달하며 현재 입력값, 결과 및 오류를 단일 창에 표시한다.",
+      "coveredSystemRequirements": [
+        "SYS-FR-001",
+        "SYS-FR-002",
+        "SYS-FR-003",
+        "SYS-FR-004",
+        "SYS-FR-005",
+        "SYS-FR-006",
+        "SYS-FR-007",
+        "SYS-FR-008",
+        "SYS-FR-009",
+        "SYS-FR-010",
+        "SYS-FR-011",
+        "SYS-FR-012",
+        "SYS-FR-013",
+        "SYS-FR-014"
+      ],
+      "requirementPath": "docs/requirements/modules/ui/requirements.md",
+      "revision": 1,
+      "hash": "A92A01EE8B0D6DB27CC6694377E3F5298C687E5C984703B5F92375023A633512",
+      "parentSystemRevision": 1,
+      "status": "requirements_ready",
+      "stale": false,
+      "staleReason": null,
+      "mode": null,
+      "design": null,
+      "tests": null,
+      "updatedAt": "2026-08-13T12:38:38.1606879+09:00"
+    }
+  },
+  "history": [
+    {
+      "at": "2026-08-13T10:39:47.1748792+09:00",
+      "stage": "requirements-system",
+      "moduleId": "",
+      "detail": "개정 1 / 신규 모듈 CALC,UI / stale "
+    },
+    {
+      "at": "2026-08-13T12:20:43.75172+09:00",
+      "stage": "confirm-modules",
+      "moduleId": "",
+      "detail": "확정 CALC,UI / 보관 "
+    },
+    {
+      "at": "2026-08-13T12:32:01.9773564+09:00",
+      "stage": "requirements-module",
+      "moduleId": "CALC",
+      "detail": "개정 1 / 시스템 개정 1"
+    },
+    {
+      "at": "2026-08-13T12:38:38.1697869+09:00",
+      "stage": "requirements-module",
+      "moduleId": "UI",
+      "detail": "개정 1 / 시스템 개정 1"
+    }
+  ]
 }
