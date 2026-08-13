@@ -174,7 +174,7 @@ $NeedsInit = $true
 if ($StateExists) {
     try {
         $Existing = (Read-Utf8File -Path $StatePath | ConvertFrom-Json)
-        $HasModules = @($Existing.modules.PSObject.Properties.Name).Count -gt 0
+        $HasModules = (Get-CodexPropertyNames -Object $Existing.modules).Count -gt 0
         $HasSystem = [int]$Existing.system.revision -gt 0
 
         if (($HasModules -or $HasSystem) -and -not $Force) {

@@ -47,6 +47,30 @@ function Get-CodexRoot {
     return (Resolve-Path (Join-Path $PSScriptRoot ".." "..")).Path
 }
 
+function Get-CodexPropertyNames {
+    <#
+        객체의 속성 이름 목록을 안전하게 돌려준다.
+
+        StrictMode 3.0 에서는 비어 있는 컬렉션에 멤버 열거를 하면
+        "The property 'Name' cannot be found on this object." 예외가 난다.
+        즉 $Object.PSObject.Properties.Name 은 속성이 하나도 없는 객체에서 실패한다.
+
+        state.json 의 modules 는 첫 실행에서 {} 이므로 반드시 이 함수를 거친다.
+    #>
+    param(
+        [Parameter(Mandatory)][AllowNull()]$Object
+    )
+
+    if ($null -eq $Object) {
+        return ,@()
+    }
+
+    # 쉼표 연산자로 감싸지 않으면 PowerShell 이 반환 배열을 펼쳐서 내보낸다.
+    # 원소가 0 개면 아무것도 출력되지 않아 호출부 변수가 $null 이 되고,
+    # StrictMode 3.0 에서 이후 .Count 접근이 예외를 던진다.
+    return ,@($Object.PSObject.Properties | ForEach-Object { $_.Name })
+}
+
 function Get-CodexProperty {
     <#
         StrictMode 3.0 에서는 없는 속성에 접근하면 예외가 난다.
@@ -62,7 +86,7 @@ function Get-CodexProperty {
         return $Default
     }
 
-    if ($Object.PSObject.Properties.Name -notcontains $Name) {
+    if ((Get-CodexPropertyNames -Object $Object) -notcontains $Name) {
         return $Default
     }
 
@@ -86,7 +110,7 @@ function Set-CodexProperty {
         [AllowNull()]$Value
     )
 
-    if ($Object.PSObject.Properties.Name -contains $Name) {
+    if ((Get-CodexPropertyNames -Object $Object) -contains $Name) {
         $Object.$Name = $Value
     }
     else {
@@ -334,7 +358,7 @@ function Get-CodexModuleState {
         [Parameter(Mandatory)][string]$ModuleId
     )
 
-    $Names = $State.modules.PSObject.Properties.Name
+    $Names = Get-CodexPropertyNames -Object $State.modules
 
     if ($Names -notcontains $ModuleId) {
         throw @"
@@ -1073,7 +1097,7 @@ function Get-CodexMode {
     $Mode = Get-CodexProperty -Object $Config -Name "mode" -Default "strict"
 
     if ($State -and -not [string]::IsNullOrWhiteSpace($ModuleId)) {
-        $Names = $State.modules.PSObject.Properties.Name
+        $Names = Get-CodexPropertyNames -Object $State.modules
 
         if ($Names -contains $ModuleId) {
             $Override = Get-CodexProperty -Object $State.modules.$ModuleId -Name "mode" -Default $null
@@ -1218,10 +1242,10 @@ function Get-CodexIdsFromText {
     )
 
     if ([string]::IsNullOrWhiteSpace($Text)) {
-        return @()
+        return ,@()
     }
 
-    return @(
+    return ,@(
         $Pattern.Matches($Text) |
             ForEach-Object { ConvertTo-CodexId -Raw $_.Value } |
             Sort-Object -Unique
@@ -1381,7 +1405,7 @@ function Get-CodexModuleIds {
         [Parameter(Mandatory)][object]$State
     )
 
-    return @($State.modules.PSObject.Properties.Name | Sort-Object)
+    return ,@(Get-CodexPropertyNames -Object $State.modules | Sort-Object)
 }
 
 function Resolve-CodexModuleId {
